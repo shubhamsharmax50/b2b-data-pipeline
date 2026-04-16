@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B2B Lead Pipeline — YC Company Intelligence</title>
+  <meta name="description" content="Live B2B startup leads scraped from Y Combinator, scored and ready for your sales team." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:       #0d0f14;
+      --surface:  #161a23;
+      --border:   #252a36;
+      --accent:   #6c63ff;
+      --accent2:  #00d4aa;
+      --hot:      #ff4d6d;
+      --warm:     #ffa94d;
+      --cold:     #4dabf7;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1f2e 0%, #0d0f14 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px);
+    }
+    .logo { display: flex; align-items: center; gap: .75rem; }
+    .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+    .logo h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -.3px; }
+    .logo span { font-size: .75rem; color: var(--muted); font-weight: 400; }
+    .header-actions { display: flex; gap: .75rem; align-items: center; }
+    .badge-live { background: rgba(0,212,170,.15); color: var(--accent2); border: 1px solid rgba(0,212,170,.3); padding: .25rem .75rem; border-radius: 20px; font-size: .72rem; font-weight: 600; letter-spacing: .5px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* ── Layout ── */
+    main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+    /* ── Stats Grid ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+      transition: transform .2s, border-color .2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .stat-label { font-size: .72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: .5rem; }
+    .stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat-value.hot  { color: var(--hot); }
+    .stat-value.warm { color: var(--warm); }
+    .stat-value.cold { color: var(--cold); }
+    .stat-value.accent { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .stat-sub { font-size: .72rem; color: var(--muted); margin-top: .4rem; }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+    }
+    .search-wrap { flex: 1; min-width: 220px; position: relative; }
+    .search-wrap input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: .6rem 1rem .6rem 2.5rem;
+      color: var(--text); font-size: .875rem; outline: none; transition: border-color .2s;
+    }
+    .search-wrap input:focus { border-color: var(--accent); }
+    .search-wrap::before { content: '🔍'; position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); font-size: .8rem; }
+    select, .btn {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: .6rem 1rem; color: var(--text);
+      font-size: .875rem; cursor: pointer; outline: none; transition: all .2s;
+    }
+    select:focus, select:hover { border-color: var(--accent); }
+    .btn { font-weight: 600; display: flex; align-items: center; gap: .4rem; }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), #5a52d5); border: none; color: #fff; }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-export { background: rgba(0,212,170,.1); border-color: rgba(0,212,170,.3); color: var(--accent2); }
+    .btn-export:hover { background: rgba(0,212,170,.2); }
+    .btn-scrape { background: rgba(108,99,255,.15); border-color: rgba(108,99,255,.4); color: var(--accent); }
+    .btn-scrape:hover { background: rgba(108,99,255,.25); }
+    .btn-scrape.loading { opacity: .6; cursor: not-allowed; animation: pulse 1s infinite; }
+
+    /* ── Table ── */
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .table-header { padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .table-header h2 { font-size: .95rem; font-weight: 600; }
+    .table-meta { font-size: .8rem; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: rgba(255,255,255,.03); padding: .75rem 1rem;
+      text-align: left; font-size: .72rem; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .6px;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: .85rem 1rem; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+
+    /* ── Company cell ── */
+    .company-cell { display: flex; align-items: center; gap: .75rem; }
+    .company-logo { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; background: var(--border); flex-shrink: 0; }
+    .logo-placeholder { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; color: #fff; flex-shrink: 0; }
+    .company-name { font-weight: 600; font-size: .9rem; }
+    .company-liner { font-size: .75rem; color: var(--muted); margin-top: .15rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Tier badge ── */
+    .tier { padding: .2rem .65rem; border-radius: 20px; font-size: .7rem; font-weight: 700; letter-spacing: .4px; }
+    .tier-Hot  { background: rgba(255,77,109,.15); color: var(--hot);  border: 1px solid rgba(255,77,109,.3); }
+    .tier-Warm { background: rgba(255,169,77,.15); color: var(--warm); border: 1px solid rgba(255,169,77,.3); }
+    .tier-Cold { background: rgba(77,171,247,.15); color: var(--cold); border: 1px solid rgba(77,171,247,.3); }
+
+    /* ── Score bar ── */
+    .score-wrap { display: flex; align-items: center; gap: .6rem; }
+    .score-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; min-width: 60px; }
+    .score-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+    .score-num { font-size: .8rem; font-weight: 600; min-width: 28px; text-align: right; }
+
+    /* ── Tags ── */
+    .tags { display: flex; flex-wrap: wrap; gap: .3rem; max-width: 200px; }
+    .tag { background: rgba(108,99,255,.12); color: #a89dff; border: 1px solid rgba(108,99,255,.2); padding: .15rem .5rem; border-radius: 4px; font-size: .65rem; font-weight: 500; }
+
+    /* ── Batch chip ── */
+    .batch { background: rgba(255,255,255,.07); color: var(--text); padding: .2rem .6rem; border-radius: 6px; font-size: .75rem; font-weight: 600; }
+
+    /* ── Link ── */
+    .link { color: var(--accent2); text-decoration: none; font-size: .8rem; }
+    .link:hover { text-decoration: underline; }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; justify-content: center; align-items: center; gap: .5rem; padding: 1.25rem; }
+    .page-btn { background: var(--bg); border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; font-size: .85rem; transition: all .2s; display: flex; align-items: center; justify-content: center; }
+    .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .page-info { font-size: .8rem; color: var(--muted); padding: 0 .5rem; }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+    .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 2rem; right: 2rem; z-index: 999;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: .85rem 1.25rem; font-size: .85rem;
+      transform: translateY(100px); opacity: 0; transition: all .3s;
+      max-width: 320px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { border-color: var(--accent2); }
+    #toast.error   { border-color: var(--hot); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <h1>B2B Lead Pipeline</h1>
+      <span>YC Company Intelligence</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="badge-live">● LIVE</span>
+    <button class="btn btn-export" id="exportBtn" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn btn-scrape" id="scrapeBtn" onclick="triggerScrape()">🕷 Scrape Now</button>
+  </div>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Leads</div>
+      <div class="stat-value accent" id="statTotal">—</div>
+      <div class="stat-sub">companies indexed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🔥 Hot Leads</div>
+      <div class="stat-value hot" id="statHot">—</div>
+      <div class="stat-sub">score ≥ 70</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🟡 Warm Leads</div>
+      <div class="stat-value warm" id="statWarm">—</div>
+      <div class="stat-sub">score 40–69</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🔵 Cold Leads</div>
+      <div class="stat-value cold" id="statCold">—</div>
+      <div class="stat-sub">score &lt; 40</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">B2B Focused</div>
+      <div class="stat-value accent" id="statB2B">—</div>
+      <div class="stat-sub">relevant industry tags</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Scraped</div>
+      <div class="stat-value" id="statDate" style="font-size:1rem;margin-top:.25rem">—</div>
+      <div class="stat-sub">auto-updates daily</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search company, tag, description…" oninput="debounceSearch()" />
+    </div>
+    <select id="tierFilter" onchange="loadLeads(1)">
+      <option value="">All Tiers</option>
+      <option value="Hot">🔥 Hot</option>
+      <option value="Warm">🟡 Warm</option>
+      <option value="Cold">🔵 Cold</option>
+    </select>
+    <select id="batchFilter" onchange="loadLeads(1)">
+      <option value="">All Batches</option>
+    </select>
+    <select id="sortSelect" onchange="loadLeads(1)">
+      <option value="score">Sort: Lead Score</option>
+      <option value="name">Sort: Name A–Z</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="b2bOnly" onchange="loadLeads(1)" style="accent-color:var(--accent)"> B2B Only
+    </label>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <h2>Company Leads</h2>
+      <span class="table-meta" id="tableMetaText">Loading…</span>
+    </div>
+    <div id="tableBody">
+      <div class="empty"><div class="empty-icon">⏳</div><p>Loading leads…</p></div>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+  let currentPage = 1;
+  let searchTimer = null;
+
+  // ── Bootstrap ────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    loadStats();
+    loadBatches();
+    loadLeads(1);
+    setInterval(loadStats, 30000); // refresh stats every 30s
+  });
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const s = await api('/api/leads/stats');
+      document.getElementById('statTotal').textContent = s.total.toLocaleString();
+      document.getElementById('statHot').textContent   = s.hot.toLocaleString();
+      document.getElementById('statWarm').textContent  = s.warm.toLocaleString();
+      document.getElementById('statCold').textContent  = s.cold.toLocaleString();
+      document.getElementById('statB2B').textContent   = s.b2b.toLocaleString();
+      document.getElementById('statDate').textContent  = s.lastScraped
+        ? new Date(s.lastScraped).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
+        : 'Not yet';
+
+      // Populate batch dropdown from stats
+      const sel = document.getElementById('batchFilter');
+      if (sel.options.length === 1 && s.topBatches?.length) {
+        s.topBatches.forEach(b => {
+          const o = document.createElement('option');
+          o.value = b._id; o.textContent = `${b._id} (${b.count})`;
+          sel.appendChild(o);
+        });
+      }
+    } catch (_) {}
+  }
+
+  async function loadBatches() {} // handled in loadStats
+
+  // ── Leads table ──────────────────────────────────────────────────────────
+  async function loadLeads(page = 1) {
+    currentPage = page;
+    const params = new URLSearchParams({
+      page,
+      limit: 20,
+      sort: document.getElementById('sortSelect').value,
+    });
+    const search = document.getElementById('searchInput').value.trim();
+    const tier   = document.getElementById('tierFilter').value;
+    const batch  = document.getElementById('batchFilter').value;
+    const b2b    = document.getElementById('b2bOnly').checked;
+    if (search) params.set('search', search);
+    if (tier)   params.set('tier', tier);
+    if (batch)  params.set('batch', batch);
+    if (b2b)    params.set('b2b', 'true');
+
+    const body = document.getElementById('tableBody');
+    body.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><p>Loading…</p></div>';
+
+    try {
+      const { data, pagination } = await api('/api/leads?' + params);
+      document.getElementById('tableMetaText').textContent =
+        `${pagination.total.toLocaleString()} results · Page ${page}/${pagination.pages}`;
+
+      if (!data.length) {
+        body.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>No leads match your filters</p></div>';
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      body.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Batch</th>
+              <th>Tags</th>
+              <th>Status</th>
+              <th>Lead Score</th>
+              <th>Tier</th>
+              <th>Website</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(companyRow).join('')}
+          </tbody>
+        </table>`;
+
+      renderPagination(page, pagination.pages);
+    } catch (err) {
+      body.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><p>${err.message}</p></div>`;
+    }
+  }
+
+  function companyRow(c) {
+    const logoEl = c.logoUrl
+      ? `<img class="company-logo" src="${c.logoUrl}" alt="${c.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : '';
+    const placeholder = `<div class="logo-placeholder" ${c.logoUrl ? 'style="display:none"' : ''}>${(c.name||'?')[0]}</div>`;
+    const tags = (c.tags||[]).slice(0,3).map(t=>`<span class="tag">${t}</span>`).join('');
+    const scoreColor = c.leadScore >= 70 ? '#ff4d6d' : c.leadScore >= 40 ? '#ffa94d' : '#4dabf7';
+    return `
+      <tr>
+        <td>
+          <div class="company-cell">
+            ${logoEl}${placeholder}
+            <div>
+              <div class="company-name">${c.name}</div>
+              <div class="company-liner">${c.oneLiner||''}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="batch">${c.batch||'—'}</span></td>
+        <td><div class="tags">${tags}</div></td>
+        <td style="font-size:.8rem;color:var(--muted)">${c.status||'—'}</td>
+        <td>
+          <div class="score-wrap">
+            <div class="score-bar"><div class="score-fill" style="width:${c.leadScore}%;background:${scoreColor}"></div></div>
+            <span class="score-num" style="color:${scoreColor}">${c.leadScore}</span>
+          </div>
+        </td>
+        <td><span class="tier tier-${c.leadTier}">${c.leadTier}</span></td>
+        <td>${c.website ? `<a class="link" href="${c.website}" target="_blank" rel="noopener">↗ Visit</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      </tr>`;
+  }
+
+  function renderPagination(current, total) {
+    if (total <= 1) { document.getElementById('pagination').innerHTML=''; return; }
+    const pages = [];
+    let start = Math.max(1, current-2), end = Math.min(total, current+2);
+    if (start>1) pages.push(1,'…');
+    for(let i=start;i<=end;i++) pages.push(i);
+    if (end<total) pages.push('…',total);
+    document.getElementById('pagination').innerHTML = pages.map(p =>
+      p==='…' ? `<span style="color:var(--muted);padding:0 .25rem">…</span>`
+               : `<button class="page-btn ${p===current?'active':''}" onclick="loadLeads(${p})">${p}</button>`
+    ).join('');
+  }
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+  function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadLeads(1), 400);
+  }
+
+  async function triggerScrape() {
+    const btn = document.getElementById('scrapeBtn');
+    btn.classList.add('loading');
+    btn.textContent = '⏳ Scraping…';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/leads/scrape', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast(data.message, 'success');
+      setTimeout(() => { loadStats(); loadLeads(currentPage); }, 5000);
+    } catch (err) {
+      toast('❌ ' + err.message, 'error');
+    } finally {
+      setTimeout(() => {
+        btn.classList.remove('loading');
+        btn.textContent = '🕷 Scrape Now';
+        btn.disabled = false;
+      }, 5000);
+    }
+  }
+
+  function exportCSV() {
+    const tier  = document.getElementById('tierFilter').value;
+    const batch = document.getElementById('batchFilter').value;
+    let url = '/api/leads/export?';
+    if (tier)  url += `tier=${tier}&`;
+    if (batch) url += `batch=${batch}`;
+    window.open(url, '_blank');
+    toast('⬇ CSV downloading…', 'success');
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  async function api(url) {
+    const r = await fetch(url);
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error || r.statusText); }
+    return r.json();
+  }
+
+  function toast(msg, type='success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `show ${type}`;
+    setTimeout(() => t.className = '', 3500);
+  }
+</script>
+</body>
+</html>
